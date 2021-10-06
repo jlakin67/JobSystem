@@ -34,14 +34,9 @@ private:
 	std::atomic<int> count;
 };
 
-struct JobArgs {
-	void* ptr = nullptr;
-	size_t len = 0;
-};
-
 struct Job {
-	std::function<void(JobArgs)> func;
-	JobArgs jobArgs;
+	std::function<void(void*)> func;
+	void* jobArgs = nullptr;
 };
 
 template <size_t N>

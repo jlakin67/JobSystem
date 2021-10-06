@@ -2,11 +2,11 @@
 #include "JobSystem.h"
 #include <chrono>
 
-void testFunc(JobArgs jobArgs) {
-    assert(jobArgs.ptr);
+void testFunc(void* jobArgs) {
+    assert(jobArgs);
     auto t0 = std::chrono::high_resolution_clock::now();
     decltype(t0) t1;
-    double ms = *reinterpret_cast<double*>(jobArgs.ptr);
+    double ms = *reinterpret_cast<double*>(jobArgs);
     std::chrono::duration<double, std::milli> dur;
     while (dur.count() < ms) {
         t1 = std::chrono::high_resolution_clock::now();
@@ -21,8 +21,7 @@ int main()
     jobManager.initialize(jobManager.getMaxPossibleThreads(), &jobCounter);
     Job job;
     double ms = 100.f;
-    job.jobArgs.ptr = &ms;
-    job.jobArgs.len = 1;
+    job.jobArgs = &ms;
     job.func = testFunc;
     auto t0 = std::chrono::high_resolution_clock::now();
     job.func(job.jobArgs);
