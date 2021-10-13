@@ -28,12 +28,16 @@ int main()
     job.func(job.jobArgs);
     job.func(job.jobArgs);
     job.func(job.jobArgs);
+    job.func(job.jobArgs);
+    job.func(job.jobArgs);
     auto t1 = std::chrono::high_resolution_clock::now();
     std::cout << "Serial: " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() << std::endl;
     t0 = std::chrono::high_resolution_clock::now();
-    jobManager.jobQueue.push_job(job, &jobCounter);
+    std::array<Job, 2> jobs{ job, job };
+    jobManager.jobQueue.push_jobs(jobs.size(), jobs.data(), &jobCounter);
     jobManager.jobQueue.push_job(job, &jobCounter);
     jobCounter.wait();
+    jobManager.jobQueue.push_jobs(jobs.size(), jobs.data(), &jobCounter);
     jobManager.jobQueue.push_job(job, &jobCounter);
     jobManager.jobQueue.push_job(job, &jobCounter);
     jobCounter.wait();

@@ -49,30 +49,56 @@ public:
 	}
 
 	bool push_job(Job job, JobCounter* counter) {
-		queue_lock.lock();
+		std::unique_lock<std::mutex> lock(queue_lock);
 		if (availableJobs == maxJobs()) {
-			queue_lock.unlock();
+			lock.unlock();
 			return false;
 		}
 		jobQueue[write_pos] = job;
 		write_pos = (write_pos + 1) % maxJobs();
 		counter->increment();
 		availableJobs++;
-		queue_lock.unlock();
+		lock.unlock();
 		jobAvailableCond.notify_one();
 		assert(availableJobs >= 0);
 		return true;
 	}
 
+	//returns number of jobs successfully pushed
+	int push_jobs(size_t numJobs, Job* jobs, JobCounter* counter) {
+		std::unique_lock<std::mutex> lock(queue_lock);
+		int jobsPushed = 0;
+		for (size_t i = 0; i < numJobs; i++) {
+			if (availableJobs == maxJobs()) {
+				lock.unlock();
+				for (int j = 0; j < jobsPushed; j++) {
+					jobAvailableCond.notify_one();
+				}
+				return jobsPushed;
+			}
+			jobQueue[write_pos] = jobs[i];
+			write_pos = (write_pos + 1) % maxJobs();
+			counter->increment();
+			availableJobs++;
+			jobsPushed++;
+		}
+		lock.unlock();
+		for (int j = 0; j < jobsPushed; j++) {
+			jobAvailableCond.notify_one();
+		}
+		assert(availableJobs >= 0);
+		return jobsPushed;
+	}
+
 	Job pop_job() {
-		std::unique_lock<std::mutex> queueLock(queue_lock);
+		std::unique_lock<std::mutex> lock(queue_lock);
 		while (availableJobs == 0) {
-			jobAvailableCond.wait(queueLock);
+			jobAvailableCond.wait(lock);
 		}
 		auto job = jobQueue[read_pos];
 		availableJobs--;
 		read_pos = (read_pos + 1) % maxJobs();
-		queueLock.unlock();
+		lock.unlock();
 		assert(availableJobs >= 0);
 		return job;
 	}
