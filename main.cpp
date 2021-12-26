@@ -18,11 +18,12 @@ int main()
 {
     JobManager<100> jobManager;
     JobCounter jobCounter;
-    jobManager.initialize(jobManager.getMaxPossibleThreads(), &jobCounter);
+    jobManager.initialize(jobManager.getMaxPossibleThreads());
     Job job;
     double ms = 100.0;
     job.jobArgs = &ms;
     job.func = testFunc;
+    job.counter = &jobCounter;
     auto t0 = std::chrono::high_resolution_clock::now();
     job.func(job.jobArgs);
     job.func(job.jobArgs);
@@ -34,12 +35,12 @@ int main()
     std::cout << "Serial: " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() << std::endl;
     t0 = std::chrono::high_resolution_clock::now();
     std::array<Job, 2> jobs{ job, job };
-    jobManager.jobQueue.push_jobs(jobs.size(), jobs.data(), &jobCounter);
-    jobManager.jobQueue.push_job(job, &jobCounter);
+    jobManager.jobQueue.push_jobs(jobs.size(), jobs.data());
+    jobManager.jobQueue.push_job(job);
     jobCounter.wait();
-    jobManager.jobQueue.push_jobs(jobs.size(), jobs.data(), &jobCounter);
-    jobManager.jobQueue.push_job(job, &jobCounter);
-    jobManager.jobQueue.push_job(job, &jobCounter);
+    jobManager.jobQueue.push_jobs(jobs.size(), jobs.data());
+    jobManager.jobQueue.push_job(job);
+    jobManager.jobQueue.push_job(job);
     jobCounter.wait();
     t1 = std::chrono::high_resolution_clock::now();
     std::cout << "Parallel: " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() << std::endl;

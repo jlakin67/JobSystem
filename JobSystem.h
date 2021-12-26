@@ -37,6 +37,8 @@ private:
 struct Job {
 	std::function<void(void*)> func;
 	void* jobArgs = nullptr;
+	JobCounter* counter = nullptr; //can have separate counters per job so you can wait on a batch of jobs
+								   //or a specific type of job instead of waiting for the whole queue to be empty
 };
 
 template <size_t N>
@@ -48,7 +50,7 @@ public:
 		write_pos = 0;
 	}
 
-	bool push_job(Job job, JobCounter* counter) {
+	bool push_job(Job job) {
 		std::unique_lock<std::mutex> lock(queue_lock);
 		if (availableJobs == maxJobs()) {
 			lock.unlock();
@@ -56,7 +58,7 @@ public:
 		}
 		jobQueue[write_pos] = job;
 		write_pos = (write_pos + 1) % maxJobs();
-		counter->increment();
+		job.counter->increment();
 		availableJobs++;
 		lock.unlock();
 		jobAvailableCond.notify_one();
@@ -65,7 +67,7 @@ public:
 	}
 
 	//returns number of jobs successfully pushed
-	int push_jobs(size_t numJobs, Job* jobs, JobCounter* counter) {
+	int push_jobs(size_t numJobs, Job* jobs) {
 		std::unique_lock<std::mutex> lock(queue_lock);
 		int jobsPushed = 0;
 		for (size_t i = 0; i < numJobs; i++) {
@@ -78,7 +80,7 @@ public:
 			}
 			jobQueue[write_pos] = jobs[i];
 			write_pos = (write_pos + 1) % maxJobs();
-			counter->increment();
+			jobs[i].counter->increment();
 			availableJobs++;
 			jobsPushed++;
 		}
@@ -113,12 +115,12 @@ private:
 };
 
 template <size_t N>
-void threadFunc(JobQueue<N>* jobQueue, JobCounter* counter) {
+void threadFunc(JobQueue<N>* jobQueue) {
 	Job job;
 	while (true) {
 		job = jobQueue->pop_job();
 		job.func(job.jobArgs);
-		counter->decrement();
+		job.counter->decrement();
 	}
 }
 
@@ -130,10 +132,10 @@ public:
 		return std::max(0, numCores - 1); //exclude main thread
 	}
 	JobManager() { static_assert(N > 1, "Array size must be greater than 1"); }
-	void initialize(int numThreads, JobCounter* counter) {
+	void initialize(int numThreads) {
 		int threadCount = std::min(getMaxPossibleThreads(), numThreads);
 		for (int i = 1; i <= threadCount; i++) {
-			std::thread worker(threadFunc<N>, &jobQueue, counter);
+			std::thread worker(threadFunc<N>, &jobQueue);
 			worker.detach();
 			threads.push_back(std::move(worker));
 
